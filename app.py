@@ -9,18 +9,17 @@ from datetime import datetime
 import tempfile
 import shutil
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='.', static_folder='.')
 app.secret_key = 'alfonso-studio-secret-key'
 
 # ========================================================
 # KONFIGURASI UNTUK RAILWAY
 # ========================================================
 
-# Railway bisa akses /tmp
 TEMP_FOLDER = '/tmp' if os.path.exists('/tmp') else tempfile.mkdtemp()
 app.config['TEMP_FOLDER'] = TEMP_FOLDER
 
-# Cek FFmpeg (di Railway pasti AVAILABLE ✅)
+# Cek FFmpeg
 FFMPEG_AVAILABLE = False
 try:
     result = subprocess.run(['ffmpeg', '-version'], capture_output=True, timeout=5)
@@ -176,7 +175,6 @@ def split_video():
         if not url or not chapters:
             return jsonify({'error': 'Data tidak lengkap'}), 400
         
-        # Download dulu
         temp_file = os.path.join(TEMP_FOLDER, 'master_temp')
         ydl_opts = {
             'outtmpl': temp_file + '.%(ext)s',
@@ -189,7 +187,6 @@ def split_video():
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
         
-        # Cari file yang didownload
         downloaded = None
         for f in os.listdir(TEMP_FOLDER):
             if f.startswith('master_temp') and not f.endswith('.part'):
@@ -199,7 +196,6 @@ def split_video():
         if not downloaded:
             return jsonify({'error': 'Gagal download file'}), 500
         
-        # Split chapters
         results = []
         for i, chap in enumerate(chapters):
             output_file = os.path.join(TEMP_FOLDER, f'track_{i+1:02d}.mp3')
@@ -219,7 +215,6 @@ def split_video():
             except Exception as e:
                 print(f"❌ Split error: {e}")
         
-        # Cleanup
         if os.path.exists(downloaded):
             os.remove(downloaded)
         
@@ -249,12 +244,9 @@ def combine():
         max_audio = data.get('max_audio', 5)
         repeat_times = data.get('repeat_times', 1)
         
-        # Cari file video
         video_files = []
         audio_files = []
         
-        # Karena di Railway, kita pakai folder yang sudah ada
-        # Untuk demo, kita akan cari di folder yang disediakan user
         if os.path.exists(video_folder):
             for f in os.listdir(video_folder):
                 if f.lower().endswith(('.mp4', '.mkv', '.avi', '.mov', '.webm')):
@@ -268,12 +260,10 @@ def combine():
         if not video_files or not audio_files:
             return jsonify({'error': 'Folder tidak valid atau kosong'}), 400
         
-        # Proses combine
         results = []
-        for vid in video_files[:3]:  # Limit 3 untuk demo
+        for vid in video_files[:3]:
             selected_audios = random.sample(audio_files, min(max_audio, len(audio_files)))
             
-            # Gabung audio
             combined = os.path.join(TEMP_FOLDER, f'combined_{datetime.now().strftime("%Y%m%d_%H%M%S")}.mp3')
             list_file = os.path.join(TEMP_FOLDER, 'list.txt')
             
@@ -284,7 +274,6 @@ def combine():
             subprocess.run(['ffmpeg', '-f', 'concat', '-safe', '0', '-i', list_file, '-c', 'copy', combined, '-y'],
                           capture_output=True, timeout=120)
             
-            # Merge video + audio
             output = os.path.join(TEMP_FOLDER, f'{channel_name}_{os.path.basename(vid)}')
             cmd = ['ffmpeg', '-stream_loop', str(repeat_times), '-i', vid, '-i', combined,
                    '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-c:a', 'copy',
