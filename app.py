@@ -8,20 +8,19 @@ import random
 from datetime import datetime
 import tempfile
 import shutil
-import sys
 
 app = Flask(__name__)
 app.secret_key = 'alfonso-studio-secret-key'
 
 # ========================================================
-# KONFIGURASI UNTUK VERCEL
+# KONFIGURASI UNTUK RAILWAY
 # ========================================================
 
-# Gunakan /tmp untuk Vercel (writable)
+# Railway bisa akses /tmp
 TEMP_FOLDER = '/tmp' if os.path.exists('/tmp') else tempfile.mkdtemp()
 app.config['TEMP_FOLDER'] = TEMP_FOLDER
 
-# Cek FFmpeg
+# Cek FFmpeg (di Railway pasti AVAILABLE ✅)
 FFMPEG_AVAILABLE = False
 try:
     result = subprocess.run(['ffmpeg', '-version'], capture_output=True, timeout=5)
@@ -32,6 +31,9 @@ try:
         print("❌ FFmpeg tidak tersedia")
 except:
     print("❌ FFmpeg tidak ditemukan")
+
+print(f"📁 TEMP Folder: {TEMP_FOLDER}")
+print(f"🎬 FFmpeg: {'AVAILABLE' if FFMPEG_AVAILABLE else 'NOT AVAILABLE'}")
 
 # ========================================================
 # ROUTES
@@ -60,7 +62,6 @@ def download():
         if not url:
             return jsonify({'error': 'URL tidak boleh kosong'}), 400
         
-        # Gunakan folder /tmp untuk Vercel
         output_template = os.path.join(TEMP_FOLDER, '%(title)s.%(ext)s')
         
         ydl_opts = {
@@ -77,7 +78,7 @@ def download():
                 'postprocessors': [{
                     'key': 'FFmpegExtractAudio',
                     'preferredcodec': 'mp3',
-                    'preferredquality': '192'
+                    'preferredquality': '320'
                 }]
             })
         else:
@@ -90,12 +91,10 @@ def download():
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             
-            # Cari file hasil download
             base_filename = ydl.prepare_filename(info)
             filename = base_filename
             
             if format_type == 'mp3':
-                # Coba cari file mp3
                 possible_names = [
                     base_filename.replace('.webm', '.mp3'),
                     base_filename.replace('.m4a', '.mp3'),
@@ -107,7 +106,6 @@ def download():
                         break
             
             if not os.path.exists(filename):
-                # Cari file terbaru di /tmp
                 files = [f for f in os.listdir(TEMP_FOLDER) if f.endswith(('.mp3', '.mp4'))]
                 if files:
                     files.sort(key=lambda x: os.path.getmtime(os.path.join(TEMP_FOLDER, x)), reverse=True)
@@ -203,17 +201,17 @@ def split_video():
         
         # Split chapters
         results = []
-        for i, chap in enumerate(chapters[:5]):  # Limit 5 tracks untuk Vercel
+        for i, chap in enumerate(chapters):
             output_file = os.path.join(TEMP_FOLDER, f'track_{i+1:02d}.mp3')
             cmd = ['ffmpeg', '-y', '-ss', str(chap['seconds']), '-i', downloaded]
             
             if i < len(chapters) - 1:
                 cmd.extend(['-to', str(chapters[i+1]['seconds'])])
             
-            cmd.extend(['-c:a', 'libmp3lame', '-b:a', '192k', '-ar', '44100', output_file])
+            cmd.extend(['-c:a', 'libmp3lame', '-b:a', '320k', '-ar', '48000', output_file])
             
             try:
-                subprocess.run(cmd, capture_output=True, timeout=60, check=True)
+                subprocess.run(cmd, capture_output=True, timeout=120, check=True)
                 results.append({
                     'filename': f'track_{i+1:02d}.mp3',
                     'title': chap['title']
@@ -251,11 +249,74 @@ def combine():
         max_audio = data.get('max_audio', 5)
         repeat_times = data.get('repeat_times', 1)
         
-        # Karena di Vercel tidak bisa akses folder user, return error
-        return jsonify({
-            'error': 'Fitur combine tidak tersedia di versi web. Gunakan aplikasi desktop untuk fitur ini.'
-        }), 400
+        # Cari file video
+        video_files = []
+        audio_files = []
         
+        # Karena di Railway, kita pakai folder yang sudah ada
+        # Untuk demo, kita akan cari di folder yang disediakan user
+        if os.path.exists(video_folder):
+            for f in os.listdir(video_folder):
+                if f.lower().endswith(('.mp4', '.mkv', '.avi', '.mov', '.webm')):
+                    video_files.append(os.path.join(video_folder, f))
+        
+        if os.path.exists(audio_folder):
+            for f in os.listdir(audio_folder):
+                if f.lower().endswith(('.mp3', '.wav', '.m4a', '.flac', '.aac')):
+                    audio_files.append(os.path.join(audio_folder, f))
+        
+        if not video_files or not audio_files:
+            return jsonify({'error': 'Folder tidak valid atau kosong'}), 400
+        
+        # Proses combine
+        results = []
+        for vid in video_files[:3]:  # Limit 3 untuk demo
+            selected_audios = random.sample(audio_files, min(max_audio, len(audio_files)))
+            
+            # Gabung audio
+            combined = os.path.join(TEMP_FOLDER, f'combined_{datetime.now().strftime("%Y%m%d_%H%M%S")}.mp3')
+            list_file = os.path.join(TEMP_FOLDER, 'list.txt')
+            
+            with open(list_file, 'w') as f:
+                for a in selected_audios:
+                    f.write(f"file '{a}'\n")
+            
+            subprocess.run(['ffmpeg', '-f', 'concat', '-safe', '0', '-i', list_file, '-c', 'copy', combined, '-y'],
+                          capture_output=True, timeout=120)
+            
+            # Merge video + audio
+            output = os.path.join(TEMP_FOLDER, f'{channel_name}_{os.path.basename(vid)}')
+            cmd = ['ffmpeg', '-stream_loop', str(repeat_times), '-i', vid, '-i', combined,
+                   '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-c:a', 'copy',
+                   '-shortest', output, '-y']
+            subprocess.run(cmd, capture_output=True, timeout=300)
+            
+            if os.path.exists(output):
+                results.append({
+                    'filename': os.path.basename(output),
+                    'size': os.path.getsize(output) / (1024 * 1024)
+                })
+            
+            os.remove(list_file)
+            os.remove(combined)
+        
+        return jsonify({
+            'success': True,
+            'results': results,
+            'message': f'Berhasil memproses {len(results)} video'
+        })
+        
+    except Exception as e:
+        print(f"❌ Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/download_file/<filename>')
+def download_file(filename):
+    try:
+        filepath = os.path.join(TEMP_FOLDER, filename)
+        if os.path.exists(filepath):
+            return send_file(filepath, as_attachment=True)
+        return jsonify({'error': 'File not found'}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
