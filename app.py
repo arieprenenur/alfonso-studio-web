@@ -8,7 +8,31 @@ import random
 from datetime import datetime
 
 # ========================================================
-# IMPORT FLASK & DEPENDENSI
+# INSTALL FFMPEG (AUTO)
+# ========================================================
+def install_ffmpeg():
+    try:
+        subprocess.run(['ffmpeg', '-version'], capture_output=True, timeout=5)
+        print("✅ FFmpeg sudah tersedia")
+        return True
+    except:
+        pass
+    
+    print("📦 Menginstall FFmpeg...")
+    try:
+        subprocess.run(['apt-get', 'update', '-y'], capture_output=True, timeout=60)
+        subprocess.run(['apt-get', 'install', '-y', 'ffmpeg'], capture_output=True, timeout=120)
+        print("✅ FFmpeg berhasil diinstall!")
+        return True
+    except Exception as e:
+        print(f"❌ Gagal install FFmpeg: {e}")
+        return False
+
+# Jalankan install
+FFMPEG_INSTALLED = install_ffmpeg()
+
+# ========================================================
+# IMPORT FLASK
 # ========================================================
 from flask import Flask, render_template, request, jsonify, send_file
 import yt_dlp
