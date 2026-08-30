@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alfonso Studio - Web</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0F172A;
+            color: #F1F5F9;
+            min-height: 100vh;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header {
+            text-align: center;
+            padding: 30px 0;
+            border-bottom: 1px solid #334155;
+        }
+        header h1 { font-size: 2.5rem; color: #6D28D9; }
+        header p { color: #94A3B8; margin-top: 10px; }
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin: 20px 0;
+            background: #1E293B;
+            border-radius: 10px;
+            padding: 5px;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: transparent;
+            color: #94A3B8;
+            cursor: pointer;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        .tab-btn.active {
+            background: #6D28D9;
+            color: #fff;
+        }
+        .tab-btn:hover:not(.active) { background: #334155; }
+        .tab-content {
+            display: none;
+            background: #1E293B;
+            border-radius: 10px;
+            padding: 20px;
+            border: 1px solid #334155;
+        }
+        .tab-content.active { display: block; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 500; color: #94A3B8; }
+        input[type="text"], input[type="number"], textarea {
+            width: 100%;
+            padding: 10px;
+            background: #0F172A;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            color: #F1F5F9;
+            font-size: 14px;
+        }
+        input:focus, textarea:focus { outline: 2px solid #6D28D9; }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            background: #6D28D9;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        button:hover { background: #5B21B6; }
+        button.success { background: #059669; }
+        button.success:hover { background: #047857; }
+        button.danger { background: #DC2626; }
+        .result-box {
+            margin-top: 15px;
+            padding: 15px;
+            background: #0F172A;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .result-box p { color: #10B981; margin: 5px 0; }
+        .result-box .error { color: #DC2626; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+        .badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge.online { background: #059669; }
+        .badge.offline { background: #DC2626; }
+        footer { text-align: center; padding: 20px; color: #475569; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎬 Alfonso Studio</h1>
+            <p>Download YouTube | Split Chapter | Combine Video</p>
+            <p style="font-size:12px; color:#475569; margin-top:5px;">
+                <span class="badge online" id="statusBadge">● Online</span>
+            </p>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="tab1">Download</button>
+            <button class="tab-btn" data-tab="tab2">Split Chapter</button>
+            <button class="tab-btn" data-tab="tab3">Combine</button>
+        </div>
+
+        <!-- TAB 1: DOWNLOAD -->
+        <div id="tab1" class="tab-content active">
+            <h3 style="margin-bottom:15px;">⬇️ Download YouTube</h3>
+            <div class="form-group">
+                <label>Link YouTube</label>
+                <input type="text" id="downloadUrl" placeholder="https://youtube.com/watch?v=...">
+            </div>
+            <div class="form-group">
+                <label>Format</label>
+                <select id="downloadFormat" style="width:100%;padding:10px;background:#0F172A;border:1px solid #334155;border-radius:8px;color:#F1F5F9;">
+                    <option value="mp3">MP3 (320kbps)</option>
+                    <option value="mp4">MP4 Video</option>
+                </select>
+            </div>
+            <button onclick="downloadVideo()">⬇️ Download</button>
+            <div id="downloadResult" class="result-box"></div>
+        </div>
+
+        <!-- TAB 2: SPLIT CHAPTER -->
+        <div id="tab2" class="tab-content">
+            <h3 style="margin-bottom:15px;">✂️ Split Chapter</h3>
+            <div class="form-group">
+                <label>Link YouTube</label>
+                <input type="text" id="splitUrl" placeholder="https://youtube.com/watch?v=...">
+            </div>
+            <button onclick="fetchChapters()">📋 Ambil Chapters</button>
+            <div id="chaptersResult" class="result-box"></div>
+            <div style="margin-top:15px;">
+                <button class="success" onclick="splitChapters()">✂️ Split & Download</button>
+            </div>
+        </div>
+
+        <!-- TAB 3: COMBINE -->
+        <div id="tab3" class="tab-content">
+            <h3 style="margin-bottom:15px;">🎵 Combine Video + Audio</h3>
+            <div class="grid-2">
+                <div>
+                    <div class="form-group">
+                        <label>Folder Video</label>
+                        <input type="text" id="videoFolder" placeholder="C:/Users/.../videos">
+                    </div>
+                </div>
+                <div>
+                    <div class="form-group">
+                        <label>Folder Audio</label>
+                        <input type="text" id="audioFolder" placeholder="C:/Users/.../audio">
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Channel Name</label>
+                <input type="text" id="channelName" value="Mix">
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Jumlah Audio per Video</label>
+                    <input type="number" id="maxAudio" value="5">
+                </div>
+                <div class="form-group">
+                    <label>Repeat Video (x)</label>
+                    <input type="number" id="repeatTimes" value="1">
+                </div>
+            </div>
+            <button class="success" onclick="combineVideo()">🎬 Start Combine</button>
+            <div id="combineResult" class="result-box"></div>
+        </div>
+
+        <footer>
+            ⚙️ Alfonso Studio - Web Edition | By Rizal Alfonso
+        </footer>
+    </div>
+
+    <script>
+        // ========================================================
+        // TAB SWITCH
+        // ========================================================
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                this.classList.add('active');
+                document.getElementById(this.dataset.tab).classList.add('active');
+            });
+        });
+
+        // ========================================================
+        // HEALTH CHECK
+        // ========================================================
+        async function checkHealth() {
+            try {
+                const res = await fetch('/health');
+                if (res.ok) {
+                    document.getElementById('statusBadge').textContent = '● Online';
+                    document.getElementById('statusBadge').className = 'badge online';
+                }
+            } catch {
+                document.getElementById('statusBadge').textContent = '● Offline';
+                document.getElementById('statusBadge').className = 'badge offline';
+            }
+        }
+        checkHealth();
+        setInterval(checkHealth, 30000);
+
+        // ========================================================
+        // DOWNLOAD
+        // ========================================================
+        async function downloadVideo() {
+            const url = document.getElementById('downloadUrl').value;
+            const format = document.getElementById('downloadFormat').value;
+            const result = document.getElementById('downloadResult');
+
+            if (!url) {
+                result.innerHTML = '<p class="error">❌ Masukkan link YouTube!</p>';
+                return;
+            }
+
+            result.innerHTML = '<p>⏳ Downloading...</p>';
+
+            try {
+                const res = await fetch('/download', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, format })
+                });
+                const data = await res.json();
+
+                if (data.error) {
+                    result.innerHTML = `<p class="error">❌ ${data.error}</p>`;
+                } else {
+                    result.innerHTML = `
+                        <p>✅ ${data.title}</p>
+                        <p>📁 ${data.filename}</p>
+                        <p style="color:#94A3B8;font-size:12px;">File tersimpan di server</p>
+                    `;
+                }
+            } catch (e) {
+                result.innerHTML = `<p class="error">❌ Error: ${e.message}</p>`;
+            }
+        }
+
+        // ========================================================
+        // SPLIT CHAPTER
+        // ========================================================
+        let chaptersData = [];
+
+        async function fetchChapters() {
+            const url = document.getElementById('splitUrl').value;
+            const result = document.getElementById('chaptersResult');
+
+            if (!url) {
+                result.innerHTML = '<p class="error">❌ Masukkan link YouTube!</p>';
+                return;
+            }
+
+            result.innerHTML = '<p>⏳ Fetching chapters...</p>';
+
+            try {
+                const res = await fetch('/get_chapters', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                const data = await res.json();
+
+                if (data.error) {
+                    result.innerHTML = `<p class="error">❌ ${data.error}</p>`;
+                    return;
+                }
+
+                chaptersData = data.chapters;
+
+                if (chaptersData.length === 0) {
+                    result.innerHTML = '<p>⚠️ Tidak ada chapter di video ini</p>';
+                    return;
+                }
+
+                let html = `<p>✅ ${data.title} - ${chaptersData.length} chapters</p>`;
+                html += '<ul style="list-style:none;padding:0;margin-top:10px;">';
+                chaptersData.forEach((ch, i) => {
+                    const time = formatTime(ch.seconds);
+                    html += `<li style="padding:5px 0;border-bottom:1px solid #334155;">${i+1}. ${time} - ${ch.title}</li>`;
+                });
+                html += '</ul>';
+                result.innerHTML = html;
+
+            } catch (e) {
+                result.innerHTML = `<p class="error">❌ Error: ${e.message}</p>`;
+            }
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
+        async function splitChapters() {
+            const url = document.getElementById('splitUrl').value;
+            const result = document.getElementById('chaptersResult');
+
+            if (!url || chaptersData.length === 0) {
+                result.innerHTML = '<p class="error">❌ Ambil chapters dulu!</p>';
+                return;
+            }
+
+            result.innerHTML = '<p>⏳ Splitting tracks...</p>';
+
+            try {
+                const res = await fetch('/split', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, chapters: chaptersData })
+                });
+                const data = await res.json();
+
+                if (data.error) {
+                    result.innerHTML = `<p class="error">❌ ${data.error}</p>`;
+                    return;
+                }
+
+                let html = `<p>✅ ${data.tracks.length} tracks berhasil di-split!</p>`;
+                data.tracks.forEach(t => {
+                    html += `<p style="color:#94A3B8;font-size:13px;">🎵 ${t.title} → ${t.filename}</p>`;
+                });
+                result.innerHTML = html;
+
+            } catch (e) {
+                result.innerHTML = `<p class="error">❌ Error: ${e.message}</p>`;
+            }
+        }
+
+        // ========================================================
+        // COMBINE
+        // ========================================================
+        async function combineVideo() {
+            const videoFolder = document.getElementById('videoFolder').value;
+            const audioFolder = document.getElementById('audioFolder').value;
+            const channelName = document.getElementById('channelName').value;
+            const maxAudio = document.getElementById('maxAudio').value;
+            const repeatTimes = document.getElementById('repeatTimes').value;
+            const result = document.getElementById('combineResult');
+
+            if (!videoFolder || !audioFolder) {
+                result.innerHTML = '<p class="error">❌ Isi semua folder!</p>';
+                return;
+            }
+
+            result.innerHTML = '<p>⏳ Processing...</p>';
+
+            try {
+                const res = await fetch('/combine', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        video_folder: videoFolder,
+                        audio_folder: audioFolder,
+                        channel_name: channelName,
+                        max_audio: parseInt(maxAudio),
+                        repeat_times: parseInt(repeatTimes)
+                    })
+                });
+                const data = await res.json();
+
+                if (data.error) {
+                    result.innerHTML = `<p class="error">❌ ${data.error}</p>`;
+                    return;
+                }
+
+                let html = `<p>✅ ${data.message}</p>`;
+                data.results.forEach(r => {
+                    html += `<p style="color:#94A3B8;font-size:13px;">📹 ${r.filename} (${r.size.toFixed(1)} MB)</p>`;
+                });
+                result.innerHTML = html;
+
+            } catch (e) {
+                result.innerHTML = `<p class="error">❌ Error: ${e.message}</p>`;
+            }
+        }
+
+        // Enter key support
+        document.getElementById('downloadUrl').addEventListener('keypress', e => {
+            if (e.key === 'Enter') downloadVideo();
+        });
+        document.getElementById('splitUrl').addEventListener('keypress', e => {
+            if (e.key === 'Enter') fetchChapters();
+        });
+    </script>
+</body>
+</html>
