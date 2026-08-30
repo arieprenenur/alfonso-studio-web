@@ -9,7 +9,11 @@ RUN apt-get update && apt-get install -y \
 
 # Copy requirements dan install
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+
+# Install dengan retry
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt || \
+    pip install --no-cache-dir Flask==2.3.3 gunicorn==21.2.0 yt-dlp==2023.12.30 requests==2.31.0 Werkzeug==2.3.8
 
 # Copy semua file
 COPY . .
