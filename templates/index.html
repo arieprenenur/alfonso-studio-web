@@ -55,7 +55,7 @@
         .tab-content.active { display: block; }
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; font-weight: 500; color: #94A3B8; }
-        input[type="text"], input[type="number"], textarea, select {
+        input[type="text"], input[type="number"], textarea {
             width: 100%;
             padding: 10px;
             background: #0F172A;
@@ -64,7 +64,7 @@
             color: #F1F5F9;
             font-size: 14px;
         }
-        input:focus, textarea:focus, select:focus { outline: 2px solid #6D28D9; }
+        input:focus, textarea:focus { outline: 2px solid #6D28D9; }
         button {
             padding: 10px 20px;
             border: none;
@@ -101,14 +101,7 @@
         }
         .badge.online { background: #059669; }
         .badge.offline { background: #DC2626; }
-        .badge.ffmpeg-ok { background: #059669; }
-        .badge.ffmpeg-no { background: #DC2626; }
-        .badge.ffmpeg-unknown { background: #475569; }
         footer { text-align: center; padding: 20px; color: #475569; font-size: 14px; }
-        .loading { opacity: 0.6; pointer-events: none; }
-        .track-list { list-style: none; padding: 0; }
-        .track-list li { padding: 5px 0; border-bottom: 1px solid #334155; }
-        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -117,20 +110,18 @@
             <h1>🎬 Alfonso Studio</h1>
             <p>Download YouTube | Split Chapter | Combine Video</p>
             <p style="font-size:12px; color:#475569; margin-top:5px;">
-                <span class="badge online" id="statusBadge">● Online</span>
-                <span class="badge ffmpeg-unknown" id="ffmpegBadge" style="margin-left:10px;">● FFmpeg: Checking...</span>
-            </p>
+    <span class="badge online" id="statusBadge">● Online</span>
+    <span class="badge" id="ffmpegBadge" style="margin-left:10px;background:#475569;">● FFmpeg: Checking...</span>
+</p>
         </header>
 
         <div class="tabs">
-            <button class="tab-btn active" data-tab="tab1">⬇️ Download</button>
-            <button class="tab-btn" data-tab="tab2">✂️ Split Chapter</button>
-            <button class="tab-btn" data-tab="tab3">🎵 Combine</button>
+            <button class="tab-btn active" data-tab="tab1">Download</button>
+            <button class="tab-btn" data-tab="tab2">Split Chapter</button>
+            <button class="tab-btn" data-tab="tab3">Combine</button>
         </div>
 
-        <!-- ================================================ -->
         <!-- TAB 1: DOWNLOAD -->
-        <!-- ================================================ -->
         <div id="tab1" class="tab-content active">
             <h3 style="margin-bottom:15px;">⬇️ Download YouTube</h3>
             <div class="form-group">
@@ -139,7 +130,7 @@
             </div>
             <div class="form-group">
                 <label>Format</label>
-                <select id="downloadFormat">
+                <select id="downloadFormat" style="width:100%;padding:10px;background:#0F172A;border:1px solid #334155;border-radius:8px;color:#F1F5F9;">
                     <option value="mp3">MP3 (320kbps)</option>
                     <option value="mp4">MP4 Video</option>
                 </select>
@@ -148,9 +139,7 @@
             <div id="downloadResult" class="result-box"></div>
         </div>
 
-        <!-- ================================================ -->
         <!-- TAB 2: SPLIT CHAPTER -->
-        <!-- ================================================ -->
         <div id="tab2" class="tab-content">
             <h3 style="margin-bottom:15px;">✂️ Split Chapter</h3>
             <div class="form-group">
@@ -159,14 +148,12 @@
             </div>
             <button onclick="fetchChapters()">📋 Ambil Chapters</button>
             <div id="chaptersResult" class="result-box"></div>
-            <div class="btn-group">
+            <div style="margin-top:15px;">
                 <button class="success" onclick="splitChapters()">✂️ Split & Download</button>
             </div>
         </div>
 
-        <!-- ================================================ -->
         <!-- TAB 3: COMBINE -->
-        <!-- ================================================ -->
         <div id="tab3" class="tab-content">
             <h3 style="margin-bottom:15px;">🎵 Combine Video + Audio</h3>
             <div class="grid-2">
@@ -238,33 +225,10 @@
         setInterval(checkHealth, 30000);
 
         // ========================================================
-        // CEK FFMPEG
-        // ========================================================
-        async function checkFFmpeg() {
-            try {
-                const res = await fetch('/health');
-                const data = await res.json();
-                const badge = document.getElementById('ffmpegBadge');
-                if (data.ffmpeg) {
-                    badge.textContent = '● FFmpeg: Available';
-                    badge.className = 'badge ffmpeg-ok';
-                } else {
-                    badge.textContent = '● FFmpeg: Not Available';
-                    badge.className = 'badge ffmpeg-no';
-                }
-            } catch {
-                document.getElementById('ffmpegBadge').textContent = '● FFmpeg: Unknown';
-                document.getElementById('ffmpegBadge').className = 'badge ffmpeg-unknown';
-            }
-        }
-        checkFFmpeg();
-        setInterval(checkFFmpeg, 30000);
-
-        // ========================================================
         // DOWNLOAD
         // ========================================================
         async function downloadVideo() {
-            const url = document.getElementById('downloadUrl').value.trim();
+            const url = document.getElementById('downloadUrl').value;
             const format = document.getElementById('downloadFormat').value;
             const result = document.getElementById('downloadResult');
 
@@ -290,9 +254,6 @@
                         <p>✅ ${data.title}</p>
                         <p>📁 ${data.filename}</p>
                         <p style="color:#94A3B8;font-size:12px;">File tersimpan di server</p>
-                        <p style="margin-top:5px;">
-                            <a href="/download_file/${data.filename}" download class="success" style="color:#059669;text-decoration:none;font-weight:600;">⬇️ Download File</a>
-                        </p>
                     `;
                 }
             } catch (e) {
@@ -306,7 +267,7 @@
         let chaptersData = [];
 
         async function fetchChapters() {
-            const url = document.getElementById('splitUrl').value.trim();
+            const url = document.getElementById('splitUrl').value;
             const result = document.getElementById('chaptersResult');
 
             if (!url) {
@@ -329,7 +290,7 @@
                     return;
                 }
 
-                chaptersData = data.chapters || [];
+                chaptersData = data.chapters;
 
                 if (chaptersData.length === 0) {
                     result.innerHTML = '<p>⚠️ Tidak ada chapter di video ini</p>';
@@ -337,10 +298,10 @@
                 }
 
                 let html = `<p>✅ ${data.title} - ${chaptersData.length} chapters</p>`;
-                html += '<ul class="track-list">';
+                html += '<ul style="list-style:none;padding:0;margin-top:10px;">';
                 chaptersData.forEach((ch, i) => {
                     const time = formatTime(ch.seconds);
-                    html += `<li>${i+1}. ${time} - ${ch.title}</li>`;
+                    html += `<li style="padding:5px 0;border-bottom:1px solid #334155;">${i+1}. ${time} - ${ch.title}</li>`;
                 });
                 html += '</ul>';
                 result.innerHTML = html;
@@ -357,7 +318,7 @@
         }
 
         async function splitChapters() {
-            const url = document.getElementById('splitUrl').value.trim();
+            const url = document.getElementById('splitUrl').value;
             const result = document.getElementById('chaptersResult');
 
             if (!url || chaptersData.length === 0) {
@@ -383,9 +344,6 @@
                 let html = `<p>✅ ${data.tracks.length} tracks berhasil di-split!</p>`;
                 data.tracks.forEach(t => {
                     html += `<p style="color:#94A3B8;font-size:13px;">🎵 ${t.title} → ${t.filename}</p>`;
-                    html += `<p style="margin-left:15px;">
-                                <a href="/download_file/${t.filename}" download style="color:#059669;text-decoration:none;font-size:13px;">⬇️ Download</a>
-                            </p>`;
                 });
                 result.innerHTML = html;
 
@@ -398,11 +356,11 @@
         // COMBINE
         // ========================================================
         async function combineVideo() {
-            const videoFolder = document.getElementById('videoFolder').value.trim();
-            const audioFolder = document.getElementById('audioFolder').value.trim();
-            const channelName = document.getElementById('channelName').value.trim() || 'Mix';
-            const maxAudio = parseInt(document.getElementById('maxAudio').value) || 5;
-            const repeatTimes = parseInt(document.getElementById('repeatTimes').value) || 1;
+            const videoFolder = document.getElementById('videoFolder').value;
+            const audioFolder = document.getElementById('audioFolder').value;
+            const channelName = document.getElementById('channelName').value;
+            const maxAudio = document.getElementById('maxAudio').value;
+            const repeatTimes = document.getElementById('repeatTimes').value;
             const result = document.getElementById('combineResult');
 
             if (!videoFolder || !audioFolder) {
@@ -420,8 +378,8 @@
                         video_folder: videoFolder,
                         audio_folder: audioFolder,
                         channel_name: channelName,
-                        max_audio: maxAudio,
-                        repeat_times: repeatTimes
+                        max_audio: parseInt(maxAudio),
+                        repeat_times: parseInt(repeatTimes)
                     })
                 });
                 const data = await res.json();
@@ -432,14 +390,9 @@
                 }
 
                 let html = `<p>✅ ${data.message}</p>`;
-                if (data.results && data.results.length > 0) {
-                    data.results.forEach(r => {
-                        html += `<p style="color:#94A3B8;font-size:13px;">📹 ${r.filename} (${r.size.toFixed(1)} MB)</p>`;
-                        html += `<p style="margin-left:15px;">
-                                    <a href="/download_file/${r.filename}" download style="color:#059669;text-decoration:none;font-size:13px;">⬇️ Download</a>
-                                </p>`;
-                    });
-                }
+                data.results.forEach(r => {
+                    html += `<p style="color:#94A3B8;font-size:13px;">📹 ${r.filename} (${r.size.toFixed(1)} MB)</p>`;
+                });
                 result.innerHTML = html;
 
             } catch (e) {
@@ -447,21 +400,31 @@
             }
         }
 
-        // ========================================================
-        // ENTER KEY SUPPORT
-        // ========================================================
+        // Enter key support
         document.getElementById('downloadUrl').addEventListener('keypress', e => {
             if (e.key === 'Enter') downloadVideo();
         });
         document.getElementById('splitUrl').addEventListener('keypress', e => {
             if (e.key === 'Enter') fetchChapters();
         });
-        document.getElementById('videoFolder').addEventListener('keypress', e => {
-            if (e.key === 'Enter') combineVideo();
-        });
-        document.getElementById('audioFolder').addEventListener('keypress', e => {
-            if (e.key === 'Enter') combineVideo();
-        });
+        // Cek FFmpeg saat load
+async function checkFFmpeg() {
+    try {
+        const res = await fetch('/health');
+        const data = await res.json();
+        const badge = document.getElementById('ffmpegBadge');
+        if (data.ffmpeg) {
+            badge.textContent = '● FFmpeg: Available';
+            badge.style.background = '#059669';
+        } else {
+            badge.textContent = '● FFmpeg: Not Available';
+            badge.style.background = '#DC2626';
+        }
+    } catch {
+        document.getElementById('ffmpegBadge').textContent = '● FFmpeg: Unknown';
+    }
+}
+checkFFmpeg();
     </script>
 </body>
 </html>
