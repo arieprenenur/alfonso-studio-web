@@ -1,9 +1,14 @@
 import os
 import subprocess
 import sys
+import tempfile
+import json
+import re
+import random
+from datetime import datetime
 
 # ========================================================
-# INSTALL FFMPEG DI RAILWAY
+# INSTALL FFMPEG DI RAILWAY (DIJALANKAN PERTAMA KALI)
 # ========================================================
 def install_ffmpeg():
     """Install FFmpeg jika tidak tersedia (khusus Railway)"""
@@ -31,23 +36,22 @@ def install_ffmpeg():
 FFMPEG_INSTALLED = install_ffmpeg()
 
 # ========================================================
-# LANJUTKAN APP
+# IMPORT FLASK & DEPENDENSI LAINNYA
 # ========================================================
 from flask import Flask, render_template, request, jsonify, send_file
 import yt_dlp
-import json
-import re
-import random
-from datetime import datetime
-import tempfile
 
 app = Flask(__name__, template_folder='templates')
 app.secret_key = 'alfonso-studio-secret-key'
 
+# ========================================================
+# KONFIGURASI
+# ========================================================
+
 TEMP_FOLDER = '/tmp' if os.path.exists('/tmp') else tempfile.mkdtemp()
 app.config['TEMP_FOLDER'] = TEMP_FOLDER
 
-# Cek FFmpeg lagi
+# Cek FFmpeg lagi setelah install
 FFMPEG_AVAILABLE = False
 try:
     result = subprocess.run(['ffmpeg', '-version'], capture_output=True, timeout=5)
@@ -68,10 +72,12 @@ print(f"🎬 FFmpeg: {'AVAILABLE' if FFMPEG_AVAILABLE else 'NOT AVAILABLE'}")
 
 @app.route('/')
 def index():
+    """Halaman utama"""
     return render_template('index.html', ffmpeg_available=FFMPEG_AVAILABLE)
 
 @app.route('/health')
 def health():
+    """Health check untuk Railway"""
     return jsonify({
         'status': 'OK',
         'ffmpeg': FFMPEG_AVAILABLE,
@@ -81,6 +87,7 @@ def health():
 
 @app.route('/download', methods=['POST'])
 def download():
+    """Download video/audio dari YouTube"""
     try:
         data = request.json
         url = data.get('url')
@@ -153,6 +160,7 @@ def download():
 
 @app.route('/get_chapters', methods=['POST'])
 def get_chapters():
+    """Ambil daftar chapter dari video YouTube"""
     try:
         data = request.json
         url = data.get('url')
@@ -192,6 +200,7 @@ def get_chapters():
 
 @app.route('/split', methods=['POST'])
 def split_video():
+    """Split video menjadi track berdasarkan chapter"""
     try:
         if not FFMPEG_AVAILABLE:
             return jsonify({'error': 'FFmpeg tidak tersedia. Split tidak bisa dilakukan.'}), 400
@@ -203,6 +212,7 @@ def split_video():
         if not url or not chapters:
             return jsonify({'error': 'Data tidak lengkap'}), 400
         
+        # Download master file
         temp_file = os.path.join(TEMP_FOLDER, 'master_temp')
         ydl_opts = {
             'outtmpl': temp_file + '.%(ext)s',
@@ -215,6 +225,7 @@ def split_video():
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
         
+        # Cari file yang didownload
         downloaded = None
         for f in os.listdir(TEMP_FOLDER):
             if f.startswith('master_temp') and not f.endswith('.part'):
@@ -224,6 +235,7 @@ def split_video():
         if not downloaded:
             return jsonify({'error': 'Gagal download file'}), 500
         
+        # Split chapters
         results = []
         for i, chap in enumerate(chapters):
             output_file = os.path.join(TEMP_FOLDER, f'track_{i+1:02d}.mp3')
@@ -243,6 +255,7 @@ def split_video():
             except Exception as e:
                 print(f"❌ Split error: {e}")
         
+        # Cleanup
         if os.path.exists(downloaded):
             os.remove(downloaded)
         
@@ -261,6 +274,7 @@ def split_video():
 
 @app.route('/combine', methods=['POST'])
 def combine():
+    """Combine video + audio"""
     try:
         if not FFMPEG_AVAILABLE:
             return jsonify({'error': 'FFmpeg tidak tersedia. Combine tidak bisa dilakukan.'}), 400
@@ -289,9 +303,10 @@ def combine():
             return jsonify({'error': 'Folder tidak valid atau kosong'}), 400
         
         results = []
-        for vid in video_files[:3]:
+        for vid in video_files[:3]:  # Limit 3 untuk demo
             selected_audios = random.sample(audio_files, min(max_audio, len(audio_files)))
             
+            # Gabung audio
             combined = os.path.join(TEMP_FOLDER, f'combined_{datetime.now().strftime("%Y%m%d_%H%M%S")}.mp3')
             list_file = os.path.join(TEMP_FOLDER, 'list.txt')
             
@@ -302,6 +317,7 @@ def combine():
             subprocess.run(['ffmpeg', '-f', 'concat', '-safe', '0', '-i', list_file, '-c', 'copy', combined, '-y'],
                           capture_output=True, timeout=120)
             
+            # Merge video + audio
             output = os.path.join(TEMP_FOLDER, f'{channel_name}_{os.path.basename(vid)}')
             cmd = ['ffmpeg', '-stream_loop', str(repeat_times), '-i', vid, '-i', combined,
                    '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-c:a', 'copy',
@@ -329,6 +345,7 @@ def combine():
 
 @app.route('/download_file/<filename>')
 def download_file(filename):
+    """Download file dari server"""
     try:
         filepath = os.path.join(TEMP_FOLDER, filename)
         if os.path.exists(filepath):
@@ -337,5 +354,24 @@ def download_file(filename):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/cleanup', methods=['POST'])
+def cleanup():
+    """Bersihkan file temporary"""
+    try:
+        count = 0
+        for f in os.listdir(TEMP_FOLDER):
+            filepath = os.path.join(TEMP_FOLDER, f)
+            if os.path.isfile(filepath):
+                os.remove(filepath)
+                count += 1
+        return jsonify({'success': True, 'cleaned': count})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ========================================================
+# MAIN
+# ========================================================
+
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=True, host='0.0.0.0', port=port)
