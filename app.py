@@ -1,25 +1,53 @@
-from flask import Flask, render_template, request, jsonify, send_file
-import yt_dlp
 import os
 import subprocess
+import sys
+
+# ========================================================
+# INSTALL FFMPEG DI RAILWAY
+# ========================================================
+def install_ffmpeg():
+    """Install FFmpeg jika tidak tersedia (khusus Railway)"""
+    try:
+        # Cek FFmpeg
+        result = subprocess.run(['ffmpeg', '-version'], capture_output=True, timeout=5)
+        if result.returncode == 0:
+            print("✅ FFmpeg sudah tersedia")
+            return True
+    except:
+        pass
+    
+    print("📦 Menginstall FFmpeg...")
+    try:
+        # Install FFmpeg via apt (untuk Railway)
+        subprocess.run(['apt-get', 'update', '-y'], capture_output=True, timeout=60)
+        subprocess.run(['apt-get', 'install', '-y', 'ffmpeg'], capture_output=True, timeout=120)
+        print("✅ FFmpeg berhasil diinstall!")
+        return True
+    except Exception as e:
+        print(f"❌ Gagal install FFmpeg: {e}")
+        return False
+
+# Jalankan install saat startup
+FFMPEG_INSTALLED = install_ffmpeg()
+
+# ========================================================
+# LANJUTKAN APP
+# ========================================================
+from flask import Flask, render_template, request, jsonify, send_file
+import yt_dlp
 import json
 import re
 import random
 from datetime import datetime
 import tempfile
-import shutil
 
-app = Flask(__name__, template_folder='.', static_folder='.')
+app = Flask(__name__, template_folder='templates')
 app.secret_key = 'alfonso-studio-secret-key'
-
-# ========================================================
-# KONFIGURASI UNTUK RAILWAY
-# ========================================================
 
 TEMP_FOLDER = '/tmp' if os.path.exists('/tmp') else tempfile.mkdtemp()
 app.config['TEMP_FOLDER'] = TEMP_FOLDER
 
-# Cek FFmpeg
+# Cek FFmpeg lagi
 FFMPEG_AVAILABLE = False
 try:
     result = subprocess.run(['ffmpeg', '-version'], capture_output=True, timeout=5)
@@ -166,7 +194,7 @@ def get_chapters():
 def split_video():
     try:
         if not FFMPEG_AVAILABLE:
-            return jsonify({'error': 'FFmpeg tidak tersedia di server ini. Split tidak bisa dilakukan.'}), 400
+            return jsonify({'error': 'FFmpeg tidak tersedia. Split tidak bisa dilakukan.'}), 400
         
         data = request.json
         url = data.get('url')
@@ -235,7 +263,7 @@ def split_video():
 def combine():
     try:
         if not FFMPEG_AVAILABLE:
-            return jsonify({'error': 'FFmpeg tidak tersedia di server ini. Combine tidak bisa dilakukan.'}), 400
+            return jsonify({'error': 'FFmpeg tidak tersedia. Combine tidak bisa dilakukan.'}), 400
         
         data = request.json
         video_folder = data.get('video_folder')
