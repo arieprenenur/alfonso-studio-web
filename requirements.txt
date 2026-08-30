@@ -1,5 +1,5 @@
 Flask==3.0.0
 gunicorn==21.2.0
-yt-dlp==2023.12.30
+yt-dlp==2024.08.06
 requests==2.31.0
 Werkzeug==3.0.1
